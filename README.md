@@ -25,4 +25,4 @@ The analysis revealed that clusters of individuals showed distinctive preference
 
 
 Skills and Tools
-R, k-means clustering, GMM, PCA, Sparse PCA, linear regression, data visualization
+- R, k-means clustering, GMM, PCA, Sparse PCA, linear regression, data visualization

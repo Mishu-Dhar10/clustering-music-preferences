@@ -1,0 +1,678 @@
+---
+title: "Lab3"
+author: "Mishu Dhar"
+format: pdf
+editor: visual
+---
+
+## Loading Libraries
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+library(data.table)
+library(ggplot2)
+library(mlbench)
+library(elasticnet)      
+library(mclust)    
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+```
+
+# Part 1:
+
+## Test Clustering and Influence
+
+### Question 1
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# importing the data
+taste_influence <- read.csv('/Users/mishudhar/Desktop/Machine Learning for Social Science/Lab3/taste_influence.csv')
+
+# check the dimension of the data
+dim(taste_influence)
+```
+
+There are four (4) columns and 1075 rows in this dataset.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| include: false
+
+
+# check the first few rows
+head(taste_influence)
+
+```
+
+Creating one scatter plot of two genres jazz and pop
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# plot
+ggplot(taste_influence, aes(x = jazz, y = pop)) +
+  geom_point() +
+  xlab("Genre 1") +
+  ylab("Genre 2") +
+  ggtitle("Scatter Plot of Jazz vs Pop")
+
+
+```
+
+From the scatter plot, it seems that the data points form three distinct groups or clusters. One group in the bottom left, one in the top left, and one in the right side. These clusters suggest that individuals with similar music tastes, such as jazz and pop, tend to group together. The data does not appear randomly scattered but instead forms noticeable patterns, indicating that musical tastes may indeed influence how the data is clustered.
+
+The plot suggests that the data is likely clustered based on musical preferences like jazz and pop.
+
+## Question 2:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# copy the data and subset for the taste columns
+tasteInfluence_copy <- taste_influence[, c("jazz", "pop", "hiphop")]
+
+# scalig
+taste_sclaed <- scale(tasteInfluence_copy)
+
+# transforming into matrix
+taste_matrix <- as.matrix(taste_sclaed)
+```
+
+### Question 3: K means clustering
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# defining the range of k values (from 1 to 20)
+k_values <- 1:20
+
+# creating an empty vector to store the total within-cluster sum of squares
+wss_values <- numeric(length(k_values))
+
+# Loop through each value of k, run k-means, and store the total within-cluster sum of squares
+for (k in k_values) {
+  # run kmeans with the current value of k
+  kmeans_result <- kmeans(taste_matrix, centers = k, nstart = 100)
+  
+  # extract and store the total within-cluster sum of squares (WSS)
+  wss_values[k] <- kmeans_result$tot.withinss
+}
+
+# Ploting the total within-cluster sum of squares against k
+plot(k_values, wss_values, type = "b", pch = 19, frame = FALSE,
+     xlab = "Number of Clusters (k)", ylab = "Total Within-Cluster Sum of Squares",
+     main = "Elbow Method for Optimal k")
+
+```
+
+Based on the elbow plot, it looks like 3 is the best number of clusters. This is because the total within-cluster sum of squares (WSS) drops quickly when increasing from 1 to 3 clusters, but after 3, the decrease slows down a lot. This means adding more clusters doesn’t really improve the clustering much. So, using 3 clusters is a good choice because it balances keeping the model simple while still capturing most of the variation in the data.
+
+## Question 4
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Run k-means with k = 3
+set.seed(123)  # Set a seed for reproducibility
+kmeans_result <- kmeans(taste_matrix, centers = 3, nstart = 100)
+
+# extracting the cluster centroids
+centroids <- kmeans_result$centers
+
+# show the result
+print(centroids)
+
+
+```
+
+The three clusters we found show distinct music preferences. Cluster 1 includes individuals who have a low preference for both jazz and pop, but they seem to like hiphop a little more, though their tastes are generally neutral. Cluster 2 is made up of Jazz lovers, these individuals have a strong preference for jazz, while showing very little interest in pop or hiphop. Cluster 3 is mostly pop fans, as they show a high preference for pop but are not very interested in jazz or hiphop. Overall, these clusters are meaningfully distinct because each group has a clear difference in music tastes, with one group preferring hip-hop slightly, another focused on jazz, and the third leaning towards pop.
+
+### Question 5:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Run k-means with k = 2
+set.seed(123)  # Set seed for reproducibility
+kmeans_result_k2 <- kmeans(taste_matrix, centers = 2, nstart = 100)
+
+# extracting the centroids for k = 2
+centroids_k2 <- kmeans_result_k2$centers
+
+# show the result
+print(centroids_k2)
+
+
+```
+
+When we use k = 2, the clustering shows two main groups. The first group has a low preference for jazz, a moderate preference for pop, and neutral or slightly positive feelings about hiphop. This group seems to have more mixed or neutral music tastes, without strong preferences for any one genre. The second group is made up of people who really like jazz but don’t care much for pop or hiphop. Compared to k = 3, where we had three distinct clusters (jazz lovers, pop lovers, and a neutral/hiphop group), using k = 2 combines some of these groups. This changes how we understand the population, as it simplifies the clusters into just two broader groups: jazz lovers and a mixed group with varied or neutral tastes. While k = 2 is simpler, it loses some of the finer details about music preferences that we saw with k = 3.
+
+## Question 6
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# adding the cluster assignments to the original data
+taste_influence$cluster_k3 <- kmeans_result$cluster  # from the k = 3 model
+
+# estimate a linear regression
+model_lm <- lm(influence ~ factor(cluster_k3) + 0, data = taste_influence)
+
+# view the summary of the regression model to interpret the results
+summary(model_lm)
+
+```
+
+The results show that there are clear differences in influence between the clusters. Cluster has the highest average influence score, meaning that people in this group tend to have more influence on others compared to the other clusters. Cluster 1 has the lowest influence score, while Cluster 3 falls somewhere in the middle. The differences between these groups are statistically significant, meaning that the higher or lower influence scores are unlikely to be due to random chance. Overall, this suggests that people in Cluster 2 are the most influential, while those in Cluster 1 are the least influential.
+
+So yes, there are differences in influence between the clusters.
+
+### Question 7
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# Scatter plot colored by clusters
+ggplot(taste_influence, aes(x = jazz, y = pop, color = factor(cluster_k3))) +
+  geom_point(size = 4) +
+  xlab("Jazz") +
+  ylab("Pop") +
+  ggtitle("Scatter Plot of Jazz vs Pop, Colored by Clusters") +
+  scale_color_manual(values = c("#00AFBB", "#E7B800", "#FC4E07")) +  # distinct colors for clusters
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5)  # Center the title
+  )
+
+```
+
+Styling the plot, for better visual.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# plot
+ggplot(taste_influence, aes(x = jazz, y = pop, color = factor(cluster_k3))) +
+  # adding shapes and transparency
+  geom_point(aes(shape = factor(cluster_k3)), size = 4, alpha = 0.7) +  
+  xlab("Jazz") +
+  ylab("Pop") +
+  ggtitle("Scatter Plot of Jazz vs Pop") +
+  scale_color_manual(values = c("#1f77b4", "#d62728", "#2ca02c")) + 
+  scale_shape_manual(values = c(16, 17, 15)) +  # Circle, triangle, and square shapes
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 16),  # center and bold the title
+    legend.position = "right",  # Position legend on the right, dashed grid lines
+    panel.grid.major = element_line(size = 0.5, linetype = 'dashed', color = 'gray'),  
+    panel.grid.minor = element_blank(),  # Remove minor grid lines
+    axis.title = element_text(face = "bold")  # Bold axis labels
+  )
+
+
+```
+
+Yes, the k-means algorithm seems to have successfully picked up on the patterns observed earlier. In the initial plot (#1), I noticed multiple clusters based on the relationships between jazz and pop preferences. This plot shows that the clustering algorithm has separated the data into distinct groups based on these preferences, as visualized by the blue, red, and green clusters. The clustering aligns well with the general patterns observed in the earlier scatter plot.
+
+The clusters show clear seperation for the most part. The green cluster (cluster 3) and the blue cluster (cluster 1) have distinct areas with minimal overlap, indicating strong separation. Similarly, the red (cluster 2) is well-defined with clear boundaries on the right side.
+
+There are few overlap between the borders of the clusters, particularly between the blue and red clusters near the middle. This is expected due to plotting the data in 2D. However, overall, the spacing between the clusters is clear enough to distinguish different groups.
+
+In clonclusing, the clusters are generally well separated, though there is some minor overlap near the middle. This suggests that the k-means algorithm effectively identified distinct groups based on musical tastes, with each cluster representing different preferences for jazz, pop, and hiphop.
+
+## Question 8
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# defining the range of G (number of components) from 1 to 20
+G_values <- 1:20
+
+# creating an empty vector to store the BIC values for each G
+bic_values <- numeric(length(G_values))
+
+# Loop through each value of G and fit the GMM model
+for (g in G_values) {
+  # Fit the Gaussian mixture model
+  gmm_model <- Mclust(taste_matrix, G = g)
+  
+  # Extract the BIC value for the current model
+  bic_values[g] <- gmm_model$bic
+}
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# plot BIC against G
+plot(G_values, bic_values, type = "b", pch = 19, frame = FALSE,
+     xlab = "Number of Components (G)", ylab = "BIC",
+     main = "BIC for Different Numbers of Components (G)")
+
+
+```
+
+This plot shows the BIC values for different numbers of clusters in the Gaussian Mixture Model. The BIC helps us decide the best number of clusters, with lower values being better. From the plot, the BIC is at its lowest point when there are 5 clusters, which means that 5 is likely the best number of clusters to use.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Fit the final GMM with G = 5 (optimal number of components)
+final_gmm <- Mclust(taste_matrix, G = 5)
+
+# extracing the centroids (means) of each cluster
+centroids_gmm <- final_gmm$parameters$mean
+
+# show the centroids
+print(centroids_gmm)
+
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# extracting the cluster assignments
+taste_influence$cluster_gmm <- final_gmm$classification
+
+
+```
+
+### Ploting:
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# plot
+ggplot(taste_influence, aes(x = jazz, y = pop, color = factor(cluster_gmm), shape = factor(cluster_gmm))) +
+  geom_point(size = 4) +
+  xlab("Jazz") +
+  ylab("Pop") +
+  ggtitle("Scatter Plot of Jazz vs Pop") +
+  scale_color_manual(values = c("red", "blue", "green", "black", "skyblue")) +  # distinct colors for each cluster
+  scale_shape_manual(values = c(16, 17, 15, 18, 19)) +  # circle, triangle, square, diamond, and another shape
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5)  # Center the title
+  )
+
+```
+
+In the plot, Cluster 3 (green) is the only one that is clearly separated from the others, meaning the individuals in this group have distinct preferences. However, Cluster 1 (red) and Cluster 2 (blue) overlap quite a bit, suggesting that the people in these two groups have similar or mixed tastes, making it hard for the model to differentiate between them. Similarly, Cluster 4 (black) and Cluster 5 (sky blue) also overlap, showing that individuals in these groups have more uncertain or ambiguous preferences. The overlaps between clusters, especially in Clusters 1 and 2, and Clusters 4 and 5, indicate that the boundaries are not as clear, which is expected in a probabilistic model like GMM. This is probably due to the situatin that the model is capturing the uncertainty and the fact that some people's preferences fall between groups.
+
+## Question 9
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# extracting the uncertainty from the GMM model
+uncertainty <- final_gmm$uncertainty
+
+# adding the uncertainty scores to the original dataset
+taste_influence$uncertainty <- uncertainty
+
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Fit the linear regression model with taste variables and uncertainty
+linear_reg_with_uncertainty <- lm(influence ~ jazz + pop + hiphop + uncertainty, data = taste_influence)
+
+# the summary of the regression results
+summary(linear_reg_with_uncertainty)
+
+
+```
+
+The results show that people who prefer hiphop have the greatest influence, with their influence score increasing by 1.07 for each unit of hip-hop preference. Jazz also has a strong effect, with each unit increase in jazz preference raising the influence score by 0.93. Pop has a smaller positive effect, increasing influence by 0.12 for each unit of pop preference. However, uncertainity plays a negative role. Individuals with higher uncertainty in their cluster assignment see a decrease of 3.37 in their influence score for each unit increase in uncertainty. This means that people whose musical tastes are less clear or more mixed are generally less influential compared to those with more defined preferences for a particular genre.
+
+# Part 2
+
+### Question 1
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# importing the dataset
+neighborhood_data <- read.csv('/Users/mishudhar/Desktop/Machine Learning for Social Science/Lab3/neighborhood.csv')
+
+# number of rows and columns
+num_rows <- nrow(neighborhood_data)
+num_cols <- ncol(neighborhood_data)
+
+# Print the result
+cat("Number of rows:", num_rows, "\n")
+cat("Number of columns:", num_cols, "\n")
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# structure of the dataset
+str(neighborhood_data)
+
+
+```
+
+The dataset has 200 rows and 25 columns. It includes information about people's music and film preferences, like how much they like jazz, pop, or action movies. It also contains details about their personal situation, like their income and education level, as well as information about their neighborhood, such as average income, education, crime rates, and the number of pizzerias. Additionally, the dataset has information about city-wide averages for music tastes and other neighborhood features, like temperature and population.
+
+### Question 2
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# performing PCA without standardization
+pca_no_standardization <- prcomp(neighborhood_data, scale. = FALSE)
+
+#  principal component loadings (rotation)
+pca_no_standardization$rotation
+
+```
+
+### Why it is problematic?
+
+Performing PCA without standardizing the data is problematic because the variables in the dataset are likely on different scales. For example, inclome might be measured in thousands, while music tastes (like jazz or pop) are measured on a smaller scale. Neighborhood features, like the number of pizzerias or the temperature, are on entirely different scales as well. Without standardization, PCA may overemphasize variables with larger scales, leading to misleading results where those variables dominate the principal components. It’s important to standardize the data (scale all variables to have mean = 0 and standard deviation = 1) before applying PCA, so each variable contributes equally regardless of its original scale.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| include: false
+
+
+
+head(neighborhood_data)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# standardizing the data
+neighborhood_standardized <- scale(neighborhood_data)
+# Fit PCA on standardized data
+pca_standardized <- prcomp(neighborhood_standardized, scale. = FALSE)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Extract the proportion of variance explained (PVE)
+pve <- (pca_standardized$sdev^2) / sum(pca_standardized$sdev^2)
+
+# Plot the PVE
+plot(pve, type = "b", pch = 19, frame = FALSE,
+     xlab = "Principal Components", 
+     ylab = "Proportion of Variance Explained",
+     main = "Scree Plot of Proportion of Variance Explained")
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Plot cumulative PVE
+plot(cumsum(pve), type = "b", pch = 19, frame = FALSE,
+     xlab = "Principal Components", 
+     ylab = "Cumulative Proportion of Variance Explained",
+     main = "Cumulative PVE")
+
+```
+
+Based on the scree plot and the cumulative PVE plot, it is clear that keeping around 5 principal components is a good choice. The scree plot shows that the amount of variance explained by each component drops quickly after the first 4 or 5, and then flattens out. The cumulative PVE plot also shows that the first 5 components explain about 80% of the total variance. After that, adding more components doesn’t make much difference. So, keeping 5 components will capture most of the important information in the data without making it too complex.
+
+### Question 4
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# showing the loadings of the principal components
+loadings <- pca_standardized$rotation
+print(loadings)
+
+
+```
+
+For better looking
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# creating a dataframe for the first 5 principal components
+pc1_to_pc5 <- as.data.frame(pca_standardized$rotation[, 1:5])
+
+# showing the new dataframe
+print(pc1_to_pc5)
+
+
+```
+
+The first principal component (PC1) is mainly influenced by socio-economic factors and neighborhood characteristics. Higher income (-0.33), education (-0.34), and average neighborhood income (-0.34) contribute negatively, while higher crime (0.33) and unemployment rates (0.35) contribute positively. The second principal component (PC2) is driven by music preferences. People who prefer jazz (-0.32), classical (-0.28), and blues (-0.32) are on the negative side, while those who prefer pop (0.27), country (0.28), and reggae (0.28) are on the positive side. PC2 separates different music tastes, with minor contributions from socio-economic factors like income (0.12). The third principal component (PC3) is also a mix of music preferences and socio-economic factors. Those who prefer jazz (0.19), classical (0.22), and blues (0.17) are on the positive side, while pop (-0.19), country (-0.21), and reggae (-0.21) fans, along with higher income (-0.20) and education (-0.21), tend to be on the negative side. PC3 also shows that higher crime (0.22) and unemployment rates (0.19) are linked to the positive side. The fourth principal component (PC4) is dominated by film preferences, with action film fans (0.71) on the positive side and those who prefer documentaries (-0.55) and romantic comedies (-0.23) on the negative side. Music and socio-economic factors play a minimal role in this component. For PC5, the values are very low.
+
+### Question 5
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+# Perform sparse PCA (adjust 'lambda' for sparsity)
+penalties <- c(0, 1, 5, 10, 20, 80, 100)  # Different λ values for testing
+sparse_pca_results <- list()  # Store results for different λ values
+
+for (penalty in penalties) {
+  sparse_pca_results[[as.character(penalty)]] <- spca(
+    neighborhood_standardized,
+    K = 5,  # Same number of components as standard PCA
+    type = "predictor",
+    para = rep(penalty, ncol(neighborhood_standardized)),
+    sparse = "penalty"
+  )
+}
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# calculating and plot the IS index for each λ
+is_pev <- c()  # Store IS values
+for (penalty in penalties) {
+  spca_model <- sparse_pca_results[[as.character(penalty)]]
+  is_pev <- c(is_pev, sum(spca_model$pev) * sum(abs(spca_model$loadings) <= 0.01))
+}
+
+plot(penalties, is_pev, type = "b", xlab = "λ", ylab = "IS Index", main = "IS Index vs λ")
+
+
+```
+
+Based on the Is Index vs λ plot, the best value for λ appears to be around 10. The IS index increases sharply from λ = 0 to λ = 10, indicating that this value provides a good balance between maintaining explained variance and enforcing sparsity in the model. After λ = 10, the IS index flattens out, meaning that increasing λ further does not lead to any meaningful improvement. This suggests that choosing a larger λ value, such as 20 or higher, would not provide additional benefits. Therefore, λ = 10 is the most appropriate choice to maximize the model's performance while simplifying the interpretation.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# extracting loadings for the best λ value 
+best_lambda <- 10
+sparse_pca_best <- sparse_pca_results[[as.character(best_lambda)]]
+sparse_pca_loadings <- sparse_pca_best$loadings
+
+# showing sparse PCA loadings for interpretation
+print(sparse_pca_loadings)
+
+
+```
+
+The principal loadings from the sparse PCA show that each component focuses on fewer key variables, making it easier to interpret compared to standard PCA. For example, PC1 is mainly influenced by socio-economic factors such as income (-0.41), neighborhood average income (-0.41), education (-0.41), and neighborhood crime (0.41), highlighting a balance between socio-economic status and crime/unemployment. PC2 focuses on music preferences, with negative loadings for jazz (-0.41), classical (-0.40), and blues (-0.42), and positive loadings for pop (0.41), country (0.40), and reggae (0.42). PC3 reflects on music preferences, contrasting pop (0.44) and country (0.39) with jazz (-0.40), and classical (-0.40). PC4 is driven by film preferences, with a strong positive loading for action films (0.88) and negative loadings for romantic comedies (-0.43). Lastly, PC5 highlights documentary preferences (0.83) and neighborhood population (0.40). Sparse PCA is easier to interpret because it zeros out irrelevant variables, but this simplification might cause it to miss subtle patterns, making standard PCA more comprehensive in capturing all relationships.
+
+### Question 6
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# function for generating the data
+set.seed(1234)  # For reproducibility
+gen_data <- function(n, p){
+  df <- c()
+  for(i in 1:p){
+    ith_var <- rnorm(n = n, mean = 0, sd = 1)
+    df <- cbind(df, ith_var)
+  }
+  return(df)
+}
+
+# generating data with 50 observations and 50 variables
+simulated_data <- gen_data(50, 50)
+
+# converting to data frame for easier handling
+simulated_data <- as.data.frame(simulated_data)
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# standardizing the data
+simulated_data_standardized <- scale(simulated_data)
+
+# convert into a matrix
+simulated_data_matrix <- as.matrix(simulated_data_standardized)
+
+```
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# performing PCA
+pca_simulated <- prcomp(simulated_data_matrix)
+
+# checking the proportion of variance explained
+summary(pca_simulated)
+
+```
+
+After estimating the standard PCA on the simulated dataset, we find that PCA is not effective in significantly reducing the dimensionality of the data. The reason is that the variance is spread out across many components. For example, the first principal component (PC1) only explains around 7.27% of the total variance, and even with the first 9 components, we only capture about 50% of the variance. To explain almost all the variance (close to 100%), we need to use all 50 components.
+
+This is probably because the dataset was generated with random, independent variables that do not have any inherent correlations or patterns. In such cases, no few components can capture most of the data's variance, which makes PCA less useful for dimensionality reduction in this scenario.
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+# Plot the proportion of variance explained
+plot(pca_simulated, type = "l", main = "Scree Plot for Simulated Data")
+
+```
+
+## Quiz
+
+### Question 1
+
+The correct answers are a and c
+
+a\. In supervised learning, observations are assigned to predefined categories based on labeled data. Unsupervised learning does not have predefined labels; instead, it finds patterns or clusters without prior knowledge of categories.
+
+c\. Supervised learning uses labeled data with known outcomes (ground truth), while unsupervised learning works with unlabeled data, where there is no ground truth to guide the learning process.
+
+### Question 2
+
+Correct answers are a and d.
+
+a\. PCA helps reveal underlying structures or patterns in the data by identifying principal components, which are combinations of the original variables that capture the most variance.
+
+d\. A primary purpose of PCA is to reduce the dimensionality of a dataset by identifying the most important components that explain the majority of the variance.
+
+### Question 3.
+
+When selecting the number of clusters (or dimensions) in unsupervised learning, we usually seek to balance two competing forces:
+
+Model complexity (or number of clusters/dimensions): Increasing the number of clusters or dimensions typically improves how well the model fits the data, capturing more details and nuances. However, this can lead to overfitting, where the model starts capturing noise and spurious patterns rather than the true underlying structure.
+
+Simplicity and Interpretatbility: Fewer clusters or dimensions lead to a simpler, more interpretable model that generalizes better to new data. However, this may result in underfitting, where important patterns or structures in the data are missed.
+
+In conlusion, the goal is to find a balance between capturing sufficient structure to accurately represent the data (model complexity) and keeping the model simple enough to avoid overfitting and ensure interpretability (simplicity). This is often done using techniques like the elbow method or analyzing the proportion of variance explained in PCA.
+
+### Question 4
+
+The correct answers are b, c, and d.
+
+a\. When we lack domain knowledge, following the elbow criterion is generally a good practice, as it helps us rely on quantitative methods. So, this option is not correct. (False)
+
+b\. If we have substantial domain knowledge and a clear hypothesis, we can choose a different number of clusters or dimensions than what the elbow criterion suggests. Our prior understanding of the problem might guide us toward a specific number of clusters or components that better fit our hypothesis. (True)
+
+c\. If interpretability is not a priority, and our goal is to maximize predictive performance, we may look for more clusters or dimensions than the elbow criterion suggests, focusing instead on the model's predictive accuracy. (True)
+
+d\. If our goal is visualization then we may prioritize reducing the number of dimensions to 2 or 3 for easy plotting, even if the elbow criterion suggests more dimensions. This choice is driven by the need for clear, simple visualizations rather than strict adherence to the elbow criterion.
